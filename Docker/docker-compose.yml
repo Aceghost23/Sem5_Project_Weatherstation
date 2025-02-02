@@ -1,0 +1,9 @@
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: ./Docker/Dockerfile
+    ports:
+      - "3000:3000"
+
+    
