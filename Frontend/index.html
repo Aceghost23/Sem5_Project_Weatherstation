@@ -1,26 +1,34 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
   <title>Weather Stations with Interactive Map</title>
 
   <!-- Leaflet & MarkerCluster CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"
+  />
 
   <!-- Leaflet & MarkerCluster JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
   <style>
+    /* Grundlegende Layout-Styles */
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
-    body, html {
+    body,
+    html {
       height: 100%;
       font-family: Arial, sans-serif;
     }
@@ -60,7 +68,7 @@
     .controls-widget button {
       width: 100%;
       padding: 10px;
-      background-color: #0078D7;
+      background-color: #0078d7;
       color: white;
       border: none;
       border-radius: 4px;
@@ -94,9 +102,12 @@
     }
   </style>
 </head>
+
 <body>
+  <!-- Kartenbereich -->
   <div id="map"></div>
 
+  <!-- Steuerungs-Widget (Radius, etc.) -->
   <div class="controls-widget" id="controlsWidget">
     <h3>Weather Station Settings</h3>
 
@@ -110,6 +121,7 @@
     <button onclick="removeRadius()">Remove Radius</button>
   </div>
 
+  <!-- Stationsliste/Tabelle -->
   <div id="stationsList">
     <h3>All Weather Stations</h3>
     <div id="stationTableContainer" class="station-table-container">
@@ -129,10 +141,11 @@
   </div>
 
   <script>
-    var map = L.map('map').setView([51.505, -0.09], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    /* Leaflet- und Marker-Setup */
+    var map = L.map("map").setView([51.505, -0.09], 5);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
-      attribution: '© OpenStreetMap contributors'
+      attribution: "© OpenStreetMap contributors",
     }).addTo(map);
 
     var markers = L.markerClusterGroup();
@@ -140,44 +153,46 @@
     var selectedStation = null;
     var radiusActive = false;
     var currentRadiusCircle = null;
-    var currentCenterMarker = null; // Marker für den Mittelpunkt
+    var currentCenterMarker = null;
     var radiusKm = 0;
 
-    // Roter DivIcon für den Mittelpunkt
+    // Roter Punkt (DivIcon) für den Radius-Mittelpunkt
     var centerIcon = L.divIcon({
-      className: 'center-marker',
-      html: '<div style="width: 10px; height: 10px; background-color: red; border-radius: 50%; border: 2px solid white;"></div>',
+      className: "center-marker",
+      html:
+        '<div style="width: 10px; height: 10px; background-color: red; border-radius: 50%; border: 2px solid white;"></div>',
       iconSize: [10, 10],
-      iconAnchor: [5, 5]
+      iconAnchor: [5, 5],
     });
 
-    // Lade Stationen
-    fetch('/stations')
-      .then(response => response.json())
-      .then(data => {
-        stations = data.map(station => ({
+    // Stationen laden
+    fetch("/stations")
+      .then((response) => response.json())
+      .then((data) => {
+        stations = data.map((station) => ({
           Station_Name: station.Station_Name,
           Latitude: parseFloat(station.Latitude),
-          Longitude: parseFloat(station.Longitude)
+          Longitude: parseFloat(station.Longitude),
         }));
         populateStationTable(stations);
         showStationsOnMap(stations);
       });
 
+    // Tabelle füllen
     function populateStationTable(data) {
       var tableBody = document.querySelector("#stationTable tbody");
       tableBody.innerHTML = "";
 
-      data.forEach(station => {
+      data.forEach((station) => {
         var row = document.createElement("tr");
-        var actionButton = selectedStation && selectedStation.Station_Name === station.Station_Name
-          ? `<button onclick="unselectStation()">Unselect</button>`
-          : `<button onclick="selectStation(${station.Latitude}, ${station.Longitude})">Select</button>`;
+        var actionButton =
+          selectedStation && selectedStation.Station_Name === station.Station_Name
+            ? `<button onclick="unselectStation()">Unselect</button>`
+            : `<button onclick="selectStation(${station.Latitude}, ${station.Longitude})">Select</button>`;
 
-        // Distance kann vorhanden sein (falls wir sie berechnet haben), muss aber nicht
-        var distanceCell = station.distance !== undefined
-          ? station.distance.toFixed(2)  // auf 2 Nachkommastellen runden
-          : '';
+        // Distance anzeigen, falls berechnet
+        var distanceCell =
+          station.distance !== undefined ? station.distance.toFixed(2) : "";
 
         row.innerHTML = `
           <td>${station.Station_Name}</td>
@@ -190,48 +205,88 @@
       });
     }
 
+    /* Popup-HTML mit Tabs generieren */
+    function generatePopupHTML(station, index) {
+      var graphId = `graphTab-${index}`;
+      var tableId = `tableTab-${index}`;
+
+      return `
+        <div style="width: 300px;">
+          <h3>${station.Station_Name}</h3>
+
+          <!-- Tab-Schaltflächen -->
+          <div style="display:flex; gap:5px; margin-bottom:10px;">
+            <button onclick="openPopupTab('${graphId}', '${tableId}')">Graph</button>
+            <button onclick="openPopupTab('${tableId}', '${graphId}')">Table</button>
+          </div>
+
+          <!-- Tab-Inhalte -->
+          <div id="${graphId}" style="display:block;">
+            <p>Hier könnten Diagramme gerendert werden.<br/>
+               (Mock-Daten für: ${station.Station_Name})</p>
+          </div>
+          <div id="${tableId}" style="display:none;">
+            <p>Hier stehen tabellarische Wetterdaten.<br/>
+               (Mock-Daten für: ${station.Station_Name})</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // Tabs umschalten
+    function openPopupTab(openId, closeId) {
+      document.getElementById(openId).style.display = "block";
+      document.getElementById(closeId).style.display = "none";
+    }
+
+    // Marker mit erweiterten Popups platzieren
     function showStationsOnMap(data) {
       markers.clearLayers();
-      data.forEach(station => {
-        var marker = L.marker([station.Latitude, station.Longitude])
-          .bindPopup(`<b>${station.Station_Name}</b>`);
+      data.forEach((station, index) => {
+        var popupHTML = generatePopupHTML(station, index);
+        var marker = L.marker([station.Latitude, station.Longitude]).bindPopup(
+          popupHTML,
+          {
+            maxWidth: 400,
+          }
+        );
         markers.addLayer(marker);
       });
       map.addLayer(markers);
     }
 
+    // Radius setzen
     function updateRadius() {
-      radiusKm = parseFloat(document.getElementById('radius').value);
-      var maxStations = parseInt(document.getElementById('maxStations').value);
+      radiusKm = parseFloat(document.getElementById("radius").value);
+      var maxStations = parseInt(document.getElementById("maxStations").value);
 
-      // Warte auf Klick, um Mittelpunkt zu setzen
-      map.once('click', function(e) {
-        // Entferne alten Kreis / Marker
-        if (currentRadiusCircle) {
-          map.removeLayer(currentRadiusCircle);
-        }
-        if (currentCenterMarker) {
-          map.removeLayer(currentCenterMarker);
-        }
+      map.once("click", function (e) {
+        if (currentRadiusCircle) map.removeLayer(currentRadiusCircle);
+        if (currentCenterMarker) map.removeLayer(currentCenterMarker);
 
-        // Neuer Kreis
         currentRadiusCircle = L.circle(e.latlng, {
           radius: radiusKm * 1000,
-          color: 'blue',
-          fillColor: '#add8e6',
-          fillOpacity: 0.5
+          color: "blue",
+          fillColor: "#add8e6",
+          fillOpacity: 0.5,
         }).addTo(map);
 
-        // Roter Mittelpunkt
-        currentCenterMarker = L.marker(e.latlng, { icon: centerIcon }).addTo(map);
+        currentCenterMarker = L.marker(e.latlng, { icon: centerIcon }).addTo(
+          map
+        );
 
-        // Filtere Stationen im Radius und sortiere nach Entfernung
+        // Stationen filtern und nach Entfernung sortieren
         var stationsInRadius = stations
-          .map(station => {
-            var distance = getDistance(e.latlng.lat, e.latlng.lng, station.Latitude, station.Longitude);
+          .map((station) => {
+            var distance = getDistance(
+              e.latlng.lat,
+              e.latlng.lng,
+              station.Latitude,
+              station.Longitude
+            );
             return { ...station, distance: distance };
           })
-          .filter(station => station.distance <= radiusKm)
+          .filter((station) => station.distance <= radiusKm)
           .sort((a, b) => a.distance - b.distance)
           .slice(0, maxStations);
 
@@ -244,6 +299,7 @@
       alert("Klicke auf die Karte, um den Mittelpunkt des Radius festzulegen.");
     }
 
+    // Radius entfernen
     function removeRadius() {
       if (currentRadiusCircle) {
         map.removeLayer(currentRadiusCircle);
@@ -258,25 +314,33 @@
       radiusActive = false;
     }
 
+    // Station fokussieren (Selektion)
     function selectStation(lat, lng) {
-      selectedStation = stations.find(station => station.Latitude === lat && station.Longitude === lng);
+      selectedStation = stations.find(
+        (station) => station.Latitude === lat && station.Longitude === lng
+      );
       map.setView([lat, lng], 13);
       populateStationTable([selectedStation]);
     }
 
+    // Station abwählen
     function unselectStation() {
       selectedStation = null;
       if (radiusActive && currentRadiusCircle && currentCenterMarker) {
-        // Re-Filtern, falls Radius noch aktiv
         var centerLatLng = currentCenterMarker.getLatLng();
-        var maxStations = parseInt(document.getElementById('maxStations').value);
+        var maxStations = parseInt(document.getElementById("maxStations").value);
 
         var stationsInRadius = stations
-          .map(station => {
-            var distance = getDistance(centerLatLng.lat, centerLatLng.lng, station.Latitude, station.Longitude);
+          .map((station) => {
+            var distance = getDistance(
+              centerLatLng.lat,
+              centerLatLng.lng,
+              station.Latitude,
+              station.Longitude
+            );
             return { ...station, distance: distance };
           })
-          .filter(station => station.distance <= radiusKm)
+          .filter((station) => station.distance <= radiusKm)
           .sort((a, b) => a.distance - b.distance)
           .slice(0, maxStations);
 
@@ -288,7 +352,7 @@
       }
     }
 
-    // Haversine-Formel (Entfernung in km)
+    
     function getDistance(lat1, lon1, lat2, lon2) {
       var R = 6371;
       var dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -296,8 +360,8 @@
       var a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
   </script>
